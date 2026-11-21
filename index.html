@@ -1,0 +1,2100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LMD Ops Pulse — Operations Performance &amp; Action Tracking</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            slatebg: '#f4f6f9',
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #f4f6f9;
+      color: #0f172a;
+    }
+    .fade-in {
+      animation: fadeIn 0.18s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(3px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Mandatory Synthetic Data Banner -->
+  <div class="bg-slate-900 text-slate-200 text-xs py-2 px-4 text-center font-medium tracking-wide border-b border-slate-800">
+    <span class="inline-flex items-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+      All metrics, driver records, and trend figures shown are <strong>synthetic</strong> and all performance thresholds are <strong>assumed</strong> for demonstration purposes only.
+    </span>
+  </div>
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between py-3 gap-3">
+        <!-- Brand & Station Context -->
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-brand-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
+              L
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-base font-bold text-slate-900 leading-tight">LMD Ops Pulse</h1>
+                <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-brand-700 border border-blue-200">
+                  HUB-NORTH-01
+                </span>
+              </div>
+              <p class="text-xs text-slate-500">Operations Performance &amp; Action Tracking</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 Connected Screen Navigation Tabs -->
+        <nav class="flex flex-wrap items-center gap-1.5" aria-label="Prototype Screens">
+          <button
+            id="nav-overview"
+            onclick="navigateTo('overview')"
+            class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+          >
+            <span>1. Performance Overview</span>
+          </button>
+          <button
+            id="nav-details"
+            onclick="navigateTo('details')"
+            class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+          >
+            <span>2. Issue Details</span>
+          </button>
+          <button
+            id="nav-create"
+            onclick="navigateTo('create')"
+            class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+          >
+            <span>3. Create Action</span>
+          </button>
+          <button
+            id="nav-tracker"
+            onclick="navigateTo('tracker')"
+            class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-1.5"
+          >
+            <span>4. Action Tracker</span>
+            <span
+              id="nav-open-badge"
+              class="ml-1 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full bg-brand-600 text-white"
+              title="Open & In Progress Actions"
+            >
+              0
+            </span>
+          </button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div id="app-root" class="fade-in"></div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-2">
+      <span>LMD Ops Pulse • Enterprise Operations Prototype (Synthetic Data &amp; Assumed Thresholds)</span>
+      <span>Workflow: Identify Issue → Analyze Trend → Recommend Action → Assign Owner → Track to Closure</span>
+    </div>
+  </footer>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
+
+  <!-- Application Logic -->
+  <script>
+    /*************************************************************************
+     * 1. SYNTHETIC DATA DEFINITIONS (Reconciled Metrics, Thresholds & Trends)
+     *
+     * KPI Status Evaluation Rules (Applied Consistently Across All Periods):
+     * - Lower-is-better (direction: 'lower', target ≤ T):
+     *     • On Target (good): value ≤ T
+     *     • Warning   (warn): T < value ≤ T * 1.40 (up to +40% above limit)
+     *     • Breach    (bad) : value > T * 1.40 (more than +40% above limit)
+     * - Higher-is-better (direction: 'higher', target ≥ T):
+     *     • On Target (good): value ≥ T
+     *     • Warning   (warn): T - 0.5 ≤ value < T (within 0.5 pp below target)
+     *     • Breach    (bad) : value < T - 0.5 (more than 0.5 pp below target)
+     *************************************************************************/
+    const MANAGERS = [
+      'Alex Chen (Ops Lead)',
+      'Maya Lin (Safety Lead)',
+      'Carlos Gomez (Dispatch Lead)'
+    ];
+
+    const DATASETS = {
+      'last_7_days': {
+        label: 'Last 7 Days (Nov 13–19)',
+        shortLabel: 'Last 7 Days',
+        empty: false,
+        kpis: {
+          safety: [
+            {
+              label: 'Netradyne Violations',
+              value: '18',
+              numericValue: 18,
+              targetValue: 10,
+              direction: 'lower',
+              unit: 'events',
+              target: '≤ 10 events / week (Assumed)',
+              delta: '+4 events vs prev week (14)'
+            },
+            {
+              label: 'Speeding Event Rate',
+              value: '1.85',
+              numericValue: 1.85,
+              targetValue: 0.50,
+              direction: 'lower',
+              unit: 'events / 100 trips',
+              target: '≤ 0.50 events / 100 trips (Assumed)',
+              delta: '+0.93 vs prev week (0.92)'
+            }
+          ],
+          team: [
+            {
+              label: 'Unexcused Callouts',
+              value: '7',
+              numericValue: 7,
+              targetValue: 4,
+              direction: 'lower',
+              unit: 'shifts',
+              target: '≤ 4 shifts / week (Assumed)',
+              delta: '+3 shifts vs prev week (4)'
+            },
+            {
+              label: 'Pending Write-Up Signatures',
+              value: '3',
+              numericValue: 3,
+              targetValue: 2,
+              direction: 'lower',
+              unit: 'forms',
+              target: '≤ 2 pending forms / week (Assumed)',
+              delta: '+2 forms vs prev week (1)'
+            }
+          ],
+          quality: [
+            {
+              label: 'Photo on Delivery (POD)',
+              value: '98.4%',
+              numericValue: 98.4,
+              targetValue: 98.0,
+              direction: 'higher',
+              unit: 'compliance',
+              target: '≥ 98.0% (Assumed)',
+              delta: '+0.6 pp vs prev week (97.8%)'
+            },
+            {
+              label: 'Delivery Completion (DCR)',
+              value: '99.1%',
+              numericValue: 99.1,
+              targetValue: 98.5,
+              direction: 'higher',
+              unit: 'completed',
+              target: '≥ 98.5% (Assumed)',
+              delta: '-0.3 pp vs prev week (99.4%)'
+            },
+            {
+              label: 'Negative Feedback (DPMO)',
+              value: '1,740',
+              numericValue: 1740,
+              targetValue: 1200,
+              direction: 'lower',
+              unit: 'DPMO',
+              target: '≤ 1,200 DPMO (Assumed)',
+              delta: '+560 DPMO vs prev week (1,180)'
+            }
+          ]
+        },
+        issues: [
+          {
+            id: 'ISS-101',
+            title: 'Speeding Event Rate Breach',
+            pillar: 'Safety',
+            severity: 'High',
+            withinTarget: false,
+            metricName: 'Speeding Event Rate',
+            currentValue: '1.85 events / 100 trips',
+            assumedThreshold: '≤ 0.50 events / 100 trips (Assumed)',
+            breachMargin: '+1.35 events / 100 trips (+270% above threshold)',
+            affectedCount: 4,
+            summary: 'Four drivers on high-density suburban routes triggered repeated Netradyne speeding alerts (>10 mph over posted limit) during afternoon delivery windows.',
+            proposedNextStep: 'Assign Safety Lead to conduct 1-on-1 Netradyne clip coaching sessions with the top 3 offending drivers before their next dispatch shift and log signed coaching acknowledgements.',
+            trend: {
+              unit: 'events / 100 trips',
+              threshold: 0.50,
+              decimals: 2,
+              direction: 'below',
+              points: [
+                { label: 'Nov 13', value: 0.45 },
+                { label: 'Nov 14', value: 0.58 },
+                { label: 'Nov 15', value: 0.95 },
+                { label: 'Nov 16', value: 1.25 },
+                { label: 'Nov 17', value: 1.52 },
+                { label: 'Nov 18', value: 1.70 },
+                { label: 'Nov 19', value: 1.85 }
+              ]
+            },
+            affectedDrivers: [
+              { name: 'Marcus Vance', route: 'RT-402', metricVal: '4.20 / 100 trips (6 events)', status: 'Critical' },
+              { name: 'Devon Brooks', route: 'RT-118', metricVal: '2.90 / 100 trips (4 events)', status: 'Critical' },
+              { name: 'Jordan Rivera', route: 'RT-205', metricVal: '1.40 / 100 trips (2 events)', status: 'Breached' },
+              { name: 'Samira Patel', route: 'RT-309', metricVal: '0.80 / 100 trips (1 event)', status: 'Watch' }
+            ]
+          },
+          {
+            id: 'ISS-102',
+            title: 'Customer Negative Feedback DPMO Breach',
+            pillar: 'Quality',
+            severity: 'High',
+            withinTarget: false,
+            metricName: 'Negative Customer Feedback',
+            currentValue: '1,740 DPMO',
+            assumedThreshold: '≤ 1,200 DPMO (Assumed)',
+            breachMargin: '+540 DPMO (+45% above threshold)',
+            affectedCount: 3,
+            summary: 'Spike in "Did Not Follow Delivery Instructions" and "Delivered to Wrong Address" customer complaints concentrated in apartment complexes on Eastside routes.',
+            proposedNextStep: 'Audit POD (Photo on Delivery) images for the 3 flagged routes, reinforce apartment locker/mailroom SOPs during morning standup, and assign follow-up spot checks.',
+            trend: {
+              unit: 'DPMO',
+              threshold: 1200,
+              decimals: 0,
+              direction: 'below',
+              points: [
+                { label: 'Nov 13', value: 1050 },
+                { label: 'Nov 14', value: 1180 },
+                { label: 'Nov 15', value: 1340 },
+                { label: 'Nov 16', value: 1490 },
+                { label: 'Nov 17', value: 1610 },
+                { label: 'Nov 18', value: 1680 },
+                { label: 'Nov 19', value: 1740 }
+              ]
+            },
+            affectedDrivers: [
+              { name: 'Elena Rostova', route: 'RT-512', metricVal: '2,850 DPMO (5 complaints)', status: 'Critical' },
+              { name: 'Marcus Vance', route: 'RT-402', metricVal: '1,920 DPMO (3 complaints)', status: 'Breached' },
+              { name: 'Priya Nair', route: 'RT-104', metricVal: '1,410 DPMO (2 complaints)', status: 'Breached' }
+            ]
+          },
+          {
+            id: 'ISS-103',
+            title: 'Unexcused Callouts Above Target',
+            pillar: 'Team',
+            severity: 'Medium',
+            withinTarget: false,
+            metricName: 'Unexcused Callouts',
+            currentValue: '7 shifts',
+            assumedThreshold: '≤ 4 shifts / week (Assumed)',
+            breachMargin: '+3 shifts (+75% above threshold)',
+            affectedCount: 3,
+            summary: 'Late-notice weekend callouts forced 4 emergency route rescues and delayed wave dispatch by an average of 22 minutes.',
+            proposedNextStep: 'Issue attendance policy reminders via LMDmax Chat, finalize pending write-up e-signatures, and confirm weekend standby roster coverage with Dispatch.',
+            trend: {
+              unit: 'cumulative shifts',
+              threshold: 4,
+              decimals: 0,
+              direction: 'below',
+              points: [
+                { label: 'Nov 13', value: 1 },
+                { label: 'Nov 14', value: 2 },
+                { label: 'Nov 15', value: 4 },
+                { label: 'Nov 16', value: 5 },
+                { label: 'Nov 17', value: 6 },
+                { label: 'Nov 18', value: 7 },
+                { label: 'Nov 19', value: 7 }
+              ]
+            },
+            affectedDrivers: [
+              { name: 'Devon Brooks', route: 'RT-118', metricVal: '3 unexcused callouts', status: 'Critical' },
+              { name: 'Jordan Rivera', route: 'RT-205', metricVal: '2 unexcused callouts', status: 'Breached' },
+              { name: 'Samira Patel', route: 'RT-309', metricVal: '2 unexcused callouts', status: 'Breached' }
+            ]
+          },
+          {
+            id: 'ISS-104',
+            title: 'Sign / Signal Violations Spike',
+            pillar: 'Safety',
+            severity: 'Medium',
+            withinTarget: false,
+            metricName: 'Sign & Signal Violations',
+            currentValue: '1.15 events / 100 trips',
+            assumedThreshold: '≤ 0.50 events / 100 trips (Assumed)',
+            breachMargin: '+0.65 events / 100 trips (+130% above threshold)',
+            affectedCount: 2,
+            summary: 'Rolling stops at residential 4-way intersections accounted for 80% of Netradyne sign violations this week.',
+            proposedNextStep: 'Share a 2-minute stop-sign compliance refresher in morning huddle and review dashcam footage with the 2 flagged drivers.',
+            trend: {
+              unit: 'events / 100 trips',
+              threshold: 0.50,
+              decimals: 2,
+              direction: 'below',
+              points: [
+                { label: 'Nov 13', value: 0.30 },
+                { label: 'Nov 14', value: 0.45 },
+                { label: 'Nov 15', value: 0.68 },
+                { label: 'Nov 16', value: 0.85 },
+                { label: 'Nov 17', value: 0.98 },
+                { label: 'Nov 18', value: 1.08 },
+                { label: 'Nov 19', value: 1.15 }
+              ]
+            },
+            affectedDrivers: [
+              { name: 'Priya Nair', route: 'RT-104', metricVal: '2.10 / 100 trips (3 events)', status: 'Breached' },
+              { name: 'Elena Rostova', route: 'RT-512', metricVal: '1.30 / 100 trips (2 events)', status: 'Breached' }
+            ]
+          }
+        ]
+      },
+      'prev_week': {
+        label: 'Previous Week (Nov 6–12)',
+        shortLabel: 'Previous Week',
+        empty: false,
+        kpis: {
+          safety: [
+            {
+              label: 'Netradyne Violations',
+              value: '14',
+              numericValue: 14,
+              targetValue: 10,
+              direction: 'lower',
+              unit: 'events',
+              target: '≤ 10 events / week (Assumed)',
+              delta: '-2 events vs prior 7d (16)'
+            },
+            {
+              label: 'Speeding Event Rate',
+              value: '0.92',
+              numericValue: 0.92,
+              targetValue: 0.50,
+              direction: 'lower',
+              unit: 'events / 100 trips',
+              target: '≤ 0.50 events / 100 trips (Assumed)',
+              delta: '-0.18 vs prior 7d (1.10)'
+            }
+          ],
+          team: [
+            {
+              label: 'Unexcused Callouts',
+              value: '4',
+              numericValue: 4,
+              targetValue: 4,
+              direction: 'lower',
+              unit: 'shifts',
+              target: '≤ 4 shifts / week (Assumed)',
+              delta: 'On target (0 variance)'
+            },
+            {
+              label: 'Pending Write-Up Signatures',
+              value: '1',
+              numericValue: 1,
+              targetValue: 2,
+              direction: 'lower',
+              unit: 'form',
+              target: '≤ 2 pending forms / week (Assumed)',
+              delta: 'Within 24h SLA (On target)'
+            }
+          ],
+          quality: [
+            {
+              label: 'Photo on Delivery (POD)',
+              value: '97.8%',
+              numericValue: 97.8,
+              targetValue: 98.0,
+              direction: 'higher',
+              unit: 'compliance',
+              target: '≥ 98.0% (Assumed)',
+              delta: '-0.3 pp vs prior 7d (98.1%)'
+            },
+            {
+              label: 'Delivery Completion (DCR)',
+              value: '99.4%',
+              numericValue: 99.4,
+              targetValue: 98.5,
+              direction: 'higher',
+              unit: 'completed',
+              target: '≥ 98.5% (Assumed)',
+              delta: '+0.2 pp vs prior 7d (99.2%)'
+            },
+            {
+              label: 'Negative Feedback (DPMO)',
+              value: '1,180',
+              numericValue: 1180,
+              targetValue: 1200,
+              direction: 'lower',
+              unit: 'DPMO',
+              target: '≤ 1,200 DPMO (Assumed)',
+              delta: '-90 DPMO vs prior 7d (1,270)'
+            }
+          ]
+        },
+        issues: [
+          {
+            id: 'ISS-201',
+            title: 'Speeding Event Rate Mild Elevation',
+            pillar: 'Safety',
+            severity: 'Medium',
+            withinTarget: false,
+            metricName: 'Speeding Event Rate',
+            currentValue: '0.92 events / 100 trips',
+            assumedThreshold: '≤ 0.50 events / 100 trips (Assumed)',
+            breachMargin: '+0.42 events / 100 trips (+84% above threshold)',
+            affectedCount: 2,
+            summary: 'Elevated highway merge speeding alerts during early morning wave dispatch.',
+            proposedNextStep: 'Send brief coaching reminder to flagged drivers and monitor next week trend.',
+            trend: {
+              unit: 'events / 100 trips',
+              threshold: 0.50,
+              decimals: 2,
+              direction: 'below',
+              points: [
+                { label: 'Nov 6', value: 0.40 },
+                { label: 'Nov 7', value: 0.48 },
+                { label: 'Nov 8', value: 0.62 },
+                { label: 'Nov 9', value: 0.78 },
+                { label: 'Nov 10', value: 0.85 },
+                { label: 'Nov 11', value: 0.89 },
+                { label: 'Nov 12', value: 0.92 }
+              ]
+            },
+            affectedDrivers: [
+              { name: 'Marcus Vance', route: 'RT-402', metricVal: '1.80 / 100 trips (2 events)', status: 'Breached' },
+              { name: 'Jordan Rivera', route: 'RT-205', metricVal: '0.95 / 100 trips (1 event)', status: 'Watch' }
+            ]
+          }
+        ]
+      },
+      'last_30_days': {
+        label: 'Last 30 Days',
+        shortLabel: 'Last 30 Days',
+        empty: false,
+        kpis: {
+          safety: [
+            {
+              label: 'Netradyne Violations',
+              value: '62',
+              numericValue: 62,
+              targetValue: 40,
+              direction: 'lower',
+              unit: 'events',
+              target: '≤ 40 events / 30d (Assumed)',
+              delta: 'Avg 15.5 events / week'
+            },
+            {
+              label: 'Speeding Event Rate',
+              value: '1.24',
+              numericValue: 1.24,
+              targetValue: 0.50,
+              direction: 'lower',
+              unit: 'events / 100 trips',
+              target: '≤ 0.50 events / 100 trips (Assumed)',
+              delta: '+0.32 vs prior 30d (0.92)'
+            }
+          ],
+          team: [
+            {
+              label: 'Unexcused Callouts',
+              value: '21',
+              numericValue: 21,
+              targetValue: 16,
+              direction: 'lower',
+              unit: 'shifts',
+              target: '≤ 16 shifts / 30d (Assumed)',
+              delta: 'Avg 5.25 shifts / week'
+            },
+            {
+              label: 'Pending Write-Up Signatures',
+              value: '5',
+              numericValue: 5,
+              targetValue: 4,
+              direction: 'lower',
+              unit: 'forms',
+              target: '≤ 4 pending forms / 30d (Assumed)',
+              delta: 'Needs HR follow-up'
+            }
+          ],
+          quality: [
+            {
+              label: 'Photo on Delivery (POD)',
+              value: '98.1%',
+              numericValue: 98.1,
+              targetValue: 98.0,
+              direction: 'higher',
+              unit: 'compliance',
+              target: '≥ 98.0% (Assumed)',
+              delta: '+0.1 pp vs prior 30d (98.0%)'
+            },
+            {
+              label: 'Delivery Completion (DCR)',
+              value: '99.2%',
+              numericValue: 99.2,
+              targetValue: 98.5,
+              direction: 'higher',
+              unit: 'completed',
+              target: '≥ 98.5% (Assumed)',
+              delta: '+0.1 pp vs prior 30d (99.1%)'
+            },
+            {
+              label: 'Negative Feedback (DPMO)',
+              value: '1,490',
+              numericValue: 1490,
+              targetValue: 1200,
+              direction: 'lower',
+              unit: 'DPMO',
+              target: '≤ 1,200 DPMO (Assumed)',
+              delta: '+290 DPMO above target'
+            }
+          ]
+        },
+        issues: [
+          {
+            id: 'ISS-301',
+            title: '30-Day Speeding Trend Above Target',
+            pillar: 'Safety',
+            severity: 'High',
+            withinTarget: false,
+            metricName: 'Speeding Event Rate (30d)',
+            currentValue: '1.24 events / 100 trips',
+            assumedThreshold: '≤ 0.50 events / 100 trips (Assumed)',
+            breachMargin: '+0.74 events / 100 trips (+148% above threshold)',
+            affectedCount: 4,
+            summary: 'Persistent speeding events concentrated across 4 repeat routes over the past month.',
+            proposedNextStep: 'Schedule a station-wide safety refresher and place repeat offenders on a 2-week monitored coaching plan.',
+            trend: {
+              unit: 'events / 100 trips',
+              threshold: 0.50,
+              decimals: 2,
+              direction: 'below',
+              points: [
+                { label: 'Wk 1', value: 0.48 },
+                { label: 'Wk 2', value: 0.86 },
+                { label: 'Wk 3', value: 1.04 },
+                { label: 'Wk 4', value: 1.24 }
+              ]
+            },
+            affectedDrivers: [
+              { name: 'Marcus Vance', route: 'RT-402', metricVal: '3.10 / 100 trips (14 events)', status: 'Critical' },
+              { name: 'Devon Brooks', route: 'RT-118', metricVal: '2.05 / 100 trips (9 events)', status: 'Critical' },
+              { name: 'Jordan Rivera', route: 'RT-205', metricVal: '1.15 / 100 trips (5 events)', status: 'Breached' },
+              { name: 'Priya Nair', route: 'RT-104', metricVal: '0.85 / 100 trips (3 events)', status: 'Watch' }
+            ]
+          }
+        ]
+      },
+      'upcoming_week': {
+        label: 'Upcoming Week (No Data)',
+        shortLabel: 'Upcoming Week',
+        empty: true,
+        kpis: null,
+        issues: []
+      }
+    };
+
+    /*************************************************************************
+     * 2. APPLICATION STATE (Preserves Selected Issue & Action Draft)
+     *************************************************************************/
+    const state = {
+      currentView: 'overview', // 'overview' | 'details' | 'create' | 'tracker'
+      selectedDateRange: 'last_7_days',
+      selectedIssueId: 'ISS-101',
+      actionFilterStatus: 'All', // 'All' | 'Open' | 'In Progress' | 'Blocked' | 'Closed'
+      highlightedActionId: null,
+      reviewedPreviousActionByIssue: {},
+      actionDraft: {
+        owner: '',
+        priority: '',
+        dueDate: '',
+        dueDateSuggested: false,
+        description: ''
+      },
+      actions: [
+        {
+          id: 'ACT-501',
+          issueId: 'ISS-101',
+          issueTitle: 'Speeding Event Rate Breach',
+          owner: 'Maya Lin (Safety Lead)',
+          dueDate: '2026-11-22',
+          priority: 'High',
+          status: 'In Progress',
+          description: 'Review Netradyne speeding clips with Marcus Vance and Devon Brooks; log signed coaching forms.',
+          outcome: '',
+          createdAt: 'Nov 19, 2026'
+        },
+        {
+          id: 'ACT-502',
+          issueId: 'ISS-102',
+          issueTitle: 'Customer Negative Feedback DPMO Breach',
+          owner: 'Alex Chen (Ops Lead)',
+          dueDate: '2026-11-23',
+          priority: 'High',
+          status: 'Open',
+          description: 'Audit POD images for Eastside apartment routes (RT-512, RT-402) and brief drivers on locker SOP.',
+          outcome: '',
+          createdAt: 'Nov 19, 2026'
+        },
+        {
+          id: 'ACT-503',
+          issueId: 'ISS-103',
+          issueTitle: 'Unexcused Callouts Above Target',
+          owner: 'Carlos Gomez (Dispatch Lead)',
+          dueDate: '2026-11-18',
+          priority: 'Medium',
+          status: 'Closed',
+          description: 'Confirmed 3 backup standby drivers for weekend wave dispatch to prevent rescue delays.',
+          outcome: 'Standby roster confirmed for weekend waves; however, 3 additional late-notice callouts still occurred during Nov 16–18 (weekly total reached 7 shifts vs. ≤ 4 target).',
+          createdAt: 'Nov 15, 2026'
+        }
+      ]
+    };
+
+    /*************************************************************************
+     * 3. HELPER UTILITIES & CONSISTENT KPI EVALUATION
+     *************************************************************************/
+    function evaluateKpiStatus(kpi) {
+      const val = kpi.numericValue;
+      const target = kpi.targetValue;
+      if (kpi.direction === 'higher') {
+        if (val >= target) return 'good';
+        if (val >= target - 0.5) return 'warn';
+        return 'bad';
+      }
+      // Default: lower-is-better
+      if (val <= target) return 'good';
+      if (val <= target * 1.40 + 1e-9) return 'warn';
+      return 'bad';
+    }
+
+    function getTodayISO() {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function addDaysISO(days) {
+      const dt = new Date();
+      dt.setDate(dt.getDate() + days);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, '0');
+      const d = String(dt.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function isActionOverdue(action) {
+      if (action.status === 'Closed' || !action.dueDate) return false;
+      return action.dueDate < getTodayISO();
+    }
+
+    function getAllIssues() {
+      const list = [];
+      Object.values(DATASETS).forEach(ds => {
+        if (ds.issues) ds.issues.forEach(iss => list.push(iss));
+      });
+      return list;
+    }
+
+    function getIssueById(id) {
+      return getAllIssues().find(i => i.id === id) || DATASETS.last_7_days.issues[0];
+    }
+
+    function getLinkedActions(issueId) {
+      return state.actions.filter(a => a.issueId === issueId);
+    }
+
+    function getActiveActionForIssue(issueId) {
+      return getLinkedActions(issueId).find(
+        a => a.status === 'Open' || a.status === 'In Progress' || a.status === 'Blocked'
+      ) || null;
+    }
+
+    function isIssueClosedStillBreaching(issue) {
+      if (!issue || issue.withinTarget) return false;
+      const active = getActiveActionForIssue(issue.id);
+      const linked = getLinkedActions(issue.id);
+      return !active && linked.length > 0 && linked[0].status === 'Closed';
+    }
+
+    function getIssueResolutionBadge(issue) {
+      if (issue.withinTarget) {
+        return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Issue: Within Target</span>`;
+      }
+      return `<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Issue: Breaching Target</span>`;
+    }
+
+    function getActionCompletionBadge(issueId) {
+      const linked = getLinkedActions(issueId);
+      if (linked.length === 0) {
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200">Action: No Action</span>`;
+      }
+      const active = getActiveActionForIssue(issueId);
+      const displayStatus = active ? active.status : linked[0].status;
+      const map = {
+        'Open': 'bg-blue-50 text-blue-700 border-blue-200',
+        'In Progress': 'bg-amber-50 text-amber-700 border-amber-200',
+        'Blocked': 'bg-red-50 text-red-700 border-red-200',
+        'Closed': 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      };
+      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${map[displayStatus] || 'bg-slate-100 text-slate-700 border-slate-200'}">Action: ${displayStatus}</span>`;
+    }
+
+    function viewActionInTracker(actionId) {
+      state.actionFilterStatus = 'All';
+      state.highlightedActionId = actionId;
+      navigateTo('tracker');
+      setTimeout(() => {
+        const el = document.getElementById(`action-card-${actionId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 60);
+    }
+
+    function reviewPreviousAction(issueId) {
+      if (state.currentView !== 'details' || state.selectedIssueId !== issueId) {
+        state.selectedIssueId = issueId;
+        state.currentView = 'details';
+        updateNavState();
+      }
+      state.reviewedPreviousActionByIssue[issueId] = true;
+      render();
+      setTimeout(() => {
+        const panel = document.getElementById('linked-action-panel');
+        if (panel) {
+          panel.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          panel.classList.add('ring-2', 'ring-brand-600', 'ring-offset-2');
+          setTimeout(() => {
+            panel.classList.remove('ring-2', 'ring-brand-600', 'ring-offset-2');
+          }, 1800);
+        }
+      }, 50);
+    }
+
+    function getIssueActionSummary(issueId) {
+      const linked = state.actions.filter(a => a.issueId === issueId);
+      if (linked.length === 0) {
+        return { label: 'No Action Assigned', cls: 'bg-slate-100 text-slate-600 border-slate-200' };
+      }
+      const latest = linked[0];
+      const map = {
+        'Open': 'bg-blue-50 text-blue-700 border-blue-200',
+        'In Progress': 'bg-amber-50 text-amber-700 border-amber-200',
+        'Blocked': 'bg-red-50 text-red-700 border-red-200',
+        'Closed': 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      };
+      const suffix = linked.length > 1 ? ` (+${linked.length - 1})` : '';
+      return {
+        label: `Action: ${latest.status}${suffix}`,
+        cls: map[latest.status] || 'bg-slate-100 text-slate-700 border-slate-200'
+      };
+    }
+
+    function toggleIssueTargetStatus(issueId) {
+      const issue = getIssueById(issueId);
+      if (!issue) return;
+      issue.withinTarget = !issue.withinTarget;
+      const statusLabel = issue.withinTarget ? 'Within Target' : 'Breaching Target';
+      showToast(`Demo Simulation: ${issue.id} metric set to ${statusLabel}.`, 'info');
+      render();
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-600 text-white border-emerald-700',
+        info: 'bg-slate-800 text-white border-slate-900',
+        error: 'bg-red-600 text-white border-red-700'
+      };
+      toast.className = `pointer-events-auto px-4 py-3 rounded-lg shadow-lg border text-sm font-medium flex items-center justify-between gap-3 fade-in ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <span>${message}</span>
+        <button onclick="this.parentElement.remove()" class="text-white/80 hover:text-white font-bold text-xs">✕</button>
+      `;
+      container.appendChild(toast);
+      setTimeout(() => {
+        if (toast.parentElement) toast.remove();
+      }, 3500);
+    }
+
+    function updateNavState() {
+      const views = ['overview', 'details', 'create', 'tracker'];
+      views.forEach(v => {
+        const btn = document.getElementById(`nav-${v}`);
+        if (!btn) return;
+        if (state.currentView === v) {
+          btn.className = 'nav-btn px-3 py-2 rounded-lg text-sm font-semibold bg-brand-50 text-brand-700 border border-brand-200 transition-colors flex items-center gap-1.5';
+        } else {
+          btn.className = 'nav-btn px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors flex items-center gap-1.5';
+        }
+      });
+
+      const activeCount = state.actions.filter(a => a.status === 'Open' || a.status === 'In Progress').length;
+      const badge = document.getElementById('nav-open-badge');
+      if (badge) badge.textContent = activeCount;
+    }
+
+    function navigateTo(view, issueId = null) {
+      if (issueId) state.selectedIssueId = issueId;
+      if (view !== 'tracker') state.highlightedActionId = null;
+      state.currentView = view;
+      updateNavState();
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function getSeverityBadge(severity) {
+      if (severity === 'High' || severity === 'Critical') {
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700 border border-red-200">${severity}</span>`;
+      }
+      if (severity === 'Medium' || severity === 'Breached') {
+        return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">${severity}</span>`;
+      }
+      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">${severity}</span>`;
+    }
+
+    function getStatusBadge(status) {
+      const map = {
+        'Open': 'bg-blue-50 text-blue-700 border-blue-200',
+        'In Progress': 'bg-amber-50 text-amber-700 border-amber-200',
+        'Blocked': 'bg-red-50 text-red-700 border-red-200',
+        'Closed': 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      };
+      return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${map[status] || 'bg-slate-100 text-slate-700'}">${status}</span>`;
+    }
+
+    function getKpiStatusPill(status) {
+      if (status === 'bad') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Breach</span>`;
+      }
+      if (status === 'warn') {
+        return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Warning</span>`;
+      }
+      return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>On Target</span>`;
+    }
+
+    /*************************************************************************
+     * 4. SCREEN 1: PERFORMANCE OVERVIEW
+     *************************************************************************/
+    function handleDateFilterChange(val) {
+      state.selectedDateRange = val;
+      render();
+    }
+
+    function renderOverview() {
+      const ds = DATASETS[state.selectedDateRange];
+
+      const dateOptions = [
+        { key: 'last_7_days', label: 'Last 7 Days (Nov 13–19)' },
+        { key: 'prev_week', label: 'Previous Week (Nov 6–12)' },
+        { key: 'last_30_days', label: 'Last 30 Days' },
+        { key: 'upcoming_week', label: 'Upcoming Week (No Data)' }
+      ];
+
+      let contentHtml = '';
+      if (ds.empty) {
+        contentHtml = `
+          <div class="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-sm">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-center text-brand-600 text-2xl">
+              📅
+            </div>
+            <h3 class="text-lg font-bold text-slate-900">No Performance Data Available Yet</h3>
+            <p class="text-sm text-slate-500 max-w-md mx-auto mt-1.5 leading-relaxed">
+              Reporting feeds for <strong>${ds.label}</strong> have not been ingested from Netradyne, Attendance, or Delivery Quality systems yet. Select an active reporting window to review station KPIs and flagged issues.
+            </p>
+            <div class="mt-6 flex items-center justify-center gap-3">
+              <button
+                onclick="handleDateFilterChange('last_7_days')"
+                class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition"
+              >
+                Switch to Last 7 Days
+              </button>
+              <button
+                onclick="navigateTo('tracker')"
+                class="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-sm font-medium rounded-lg transition"
+              >
+                View Action Tracker
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        const renderKpiCard = (k) => {
+          const computedStatus = evaluateKpiStatus(k);
+          const borderAccent = computedStatus === 'bad' ? 'border-t-red-500' : computedStatus === 'warn' ? 'border-t-amber-500' : 'border-t-emerald-500';
+          const deltaColor = computedStatus === 'bad' ? 'text-red-600' : computedStatus === 'warn' ? 'text-amber-600' : 'text-emerald-600';
+          return `
+            <div class="bg-white rounded-xl border border-slate-200 border-t-4 ${borderAccent} p-4 shadow-sm hover:shadow transition">
+              <div class="flex items-start justify-between gap-2">
+                <p class="text-xs font-semibold text-slate-600 uppercase tracking-wide">${k.label}</p>
+                ${getKpiStatusPill(computedStatus)}
+              </div>
+              <div class="mt-3 flex items-baseline gap-2">
+                <span class="text-2xl font-bold text-slate-900 tracking-tight">${k.value}</span>
+                <span class="text-xs font-medium text-slate-500">${k.unit}</span>
+              </div>
+              <div class="mt-3 pt-2.5 border-t border-slate-100 flex flex-col gap-1 text-xs">
+                <span class="font-medium ${deltaColor}">${k.delta}</span>
+                <span class="text-slate-400">Target: ${k.target}</span>
+              </div>
+            </div>
+          `;
+        };
+
+        const issuesHtml = ds.issues.map(iss => {
+          const actionSummary = getIssueActionSummary(iss.id);
+          const linked = getLinkedActions(iss.id);
+          const isResolved = iss.withinTarget && linked.length > 0 && linked[0].status === 'Closed';
+          const targetBadge = iss.withinTarget
+            ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>${isResolved ? 'Resolved' : 'Within Target'}</span>`
+            : '';
+          return `
+            <div
+              onclick="navigateTo('details', '${iss.id}')"
+              role="button"
+              tabindex="0"
+              onkeydown="if(event.key==='Enter') navigateTo('details', '${iss.id}')"
+              class="cursor-pointer bg-white rounded-xl border ${iss.withinTarget ? 'border-emerald-200' : 'border-slate-200'} p-5 shadow-sm hover:border-brand-600 hover:shadow-md transition flex flex-col lg:flex-row lg:items-center justify-between gap-4 group"
+            >
+              <div class="space-y-2 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  ${getSeverityBadge(iss.severity)}
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">${iss.pillar}</span>
+                  <span class="text-xs text-slate-400 font-mono">${iss.id}</span>
+                  ${targetBadge}
+                  <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${actionSummary.cls}">
+                    ${actionSummary.label}
+                  </span>
+                </div>
+                <h4 class="text-base font-bold text-slate-900 group-hover:text-brand-600 transition">${iss.title}</h4>
+                <p class="text-sm text-slate-600 line-clamp-2">${iss.summary}</p>
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 pt-0.5">
+                  <span>Current: <strong class="text-slate-800">${iss.currentValue}</strong></span>
+                  <span class="text-slate-300">•</span>
+                  <span>Threshold: <span>${iss.assumedThreshold}</span></span>
+                  <span class="text-slate-300">•</span>
+                  <span class="font-semibold text-red-600">${iss.affectedCount} drivers affected</span>
+                </div>
+              </div>
+              <div class="shrink-0">
+                <span class="w-full lg:w-auto px-4 py-2 bg-brand-600 group-hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition inline-flex items-center justify-center gap-1.5">
+                  Analyze Issue <span aria-hidden="true">→</span>
+                </span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        contentHtml = `
+          <!-- Consistent KPI Status Rule Legend -->
+          <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-slate-500">
+            <span class="font-medium text-slate-600">KPI Status Rules (Assumed):</span>
+            <div class="flex flex-wrap items-center gap-3">
+              <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-500"></span><strong>On Target:</strong> Meets limit</span>
+              <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-amber-500"></span><strong>Warning:</strong> Up to +40% above limit (or ≤ 0.5 pp below % target)</span>
+              <span class="inline-flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-red-500"></span><strong>Breach:</strong> &gt; 40% above limit (or &gt; 0.5 pp below % target)</span>
+            </div>
+          </div>
+
+          <!-- Metric Pillars -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Safety -->
+            <section class="space-y-3">
+              <div class="flex items-center justify-between px-1">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span> Safety
+                </h3>
+                <span class="text-xs text-slate-500">Netradyne Feed</span>
+              </div>
+              <div class="grid grid-cols-1 gap-3">
+                ${ds.kpis.safety.map(renderKpiCard).join('')}
+              </div>
+            </section>
+
+            <!-- Team -->
+            <section class="space-y-3">
+              <div class="flex items-center justify-between px-1">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Team
+                </h3>
+                <span class="text-xs text-slate-500">Attendance &amp; HR</span>
+              </div>
+              <div class="grid grid-cols-1 gap-3">
+                ${ds.kpis.team.map(renderKpiCard).join('')}
+              </div>
+            </section>
+
+            <!-- Quality -->
+            <section class="space-y-3">
+              <div class="flex items-center justify-between px-1">
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Quality
+                </h3>
+                <span class="text-xs text-slate-500">Delivery Accuracy</span>
+              </div>
+              <div class="grid grid-cols-1 gap-3">
+                ${ds.kpis.quality.map(renderKpiCard).join('')}
+              </div>
+            </section>
+          </div>
+
+          <!-- Needs Attention Section -->
+          <section>
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div>
+                <h3 class="text-lg font-bold text-slate-900">Needs Attention (${ds.issues.length})</h3>
+                <p class="text-sm text-slate-500">Threshold breaches detected for <strong>${ds.label}</strong>. Click any issue card to inspect trend data, affected drivers, and follow-up actions.</p>
+              </div>
+            </div>
+            <div class="space-y-3">
+              ${issuesHtml}
+            </div>
+          </section>
+        `;
+      }
+
+      return `
+        <div class="space-y-6">
+          <!-- Page Header + Enhanced Date Filter -->
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div>
+              <h2 class="text-xl font-bold text-slate-900">Performance Overview</h2>
+              <p class="text-sm text-slate-500 mt-0.5">Station <strong>HUB-NORTH-01</strong> • Operational health across Safety, Team, and Quality</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <label for="date-filter" class="text-xs font-semibold text-slate-500 uppercase tracking-wide mr-1">Reporting Period:</label>
+              <div class="relative">
+                <select
+                  id="date-filter"
+                  onchange="handleDateFilterChange(this.value)"
+                  class="bg-slate-50 hover:bg-slate-100 border border-slate-300 text-slate-800 text-sm rounded-lg focus:ring-2 focus:ring-brand-600 focus:border-brand-600 pl-3 pr-8 py-2 font-semibold transition cursor-pointer"
+                >
+                  ${dateOptions.map(opt => `<option value="${opt.key}" ${state.selectedDateRange === opt.key ? 'selected' : ''}>${opt.label}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          ${contentHtml}
+        </div>
+      `;
+    }
+
+    /*************************************************************************
+     * 5. SCREEN 2: ISSUE DETAILS (TREND CHART, CONDITIONAL CTA & DEMO TOGGLE)
+     *************************************************************************/
+    function formatMetricNum(val, decimals) {
+      if (decimals === 0) return Math.round(val).toLocaleString();
+      return Number(val).toFixed(decimals);
+    }
+
+    function renderTrendChart(issue) {
+      if (!issue.trend || !issue.trend.points || issue.trend.points.length === 0) return '';
+
+      const { points, threshold, unit, direction } = issue.trend;
+      const decimals = typeof issue.trend.decimals === 'number' ? issue.trend.decimals : 2;
+      const lowerIsBetter = direction !== 'above';
+      const values = points.map(p => p.value);
+      const maxVal = Math.max(...values, threshold * 1.25);
+      const chartHeight = 200;
+      const chartWidth = 680;
+      const padLeft = 52;
+      const padRight = 24;
+      const padTop = 24;
+      const padBottom = 34;
+      const plotW = chartWidth - padLeft - padRight;
+      const plotH = chartHeight - padTop - padBottom;
+
+      const yScale = (val) => padTop + plotH - (val / maxVal) * plotH;
+      const thresholdY = yScale(threshold);
+      const barSlot = plotW / points.length;
+      const barW = Math.min(44, barSlot * 0.52);
+
+      const gridLevels = [0, maxVal * 0.5, maxVal];
+      const gridLinesHtml = gridLevels.map(lvl => {
+        const y = yScale(lvl);
+        const formatted = decimals === 0 ? Math.round(lvl).toLocaleString() : lvl.toFixed(1);
+        return `
+          <line x1="${padLeft}" y1="${y}" x2="${chartWidth - padRight}" y2="${y}" stroke="#e2e8f0" stroke-width="1" />
+          <text x="${padLeft - 8}" y="${y + 4}" text-anchor="end" font-size="10" fill="#64748b">${formatted}</text>
+        `;
+      }).join('');
+
+      const barsHtml = points.map((pt, idx) => {
+        const isBreach = lowerIsBetter ? pt.value > threshold : pt.value < threshold;
+        const fill = isBreach ? '#ef4444' : '#10b981';
+        const x = padLeft + idx * barSlot + (barSlot - barW) / 2;
+        const y = yScale(pt.value);
+        const h = Math.max(2, padTop + plotH - y);
+        const displayVal = formatMetricNum(pt.value, decimals);
+
+        return `
+          <g>
+            <rect x="${x}" y="${y}" width="${barW}" height="${h}" rx="4" fill="${fill}" opacity="0.9"></rect>
+            <text x="${x + barW / 2}" y="${y - 6}" text-anchor="middle" font-size="10" font-weight="600" fill="${isBreach ? '#b91c1c' : '#047857'}">${displayVal}</text>
+            <text x="${x + barW / 2}" y="${chartHeight - 12}" text-anchor="middle" font-size="11" fill="#475569">${pt.label}</text>
+          </g>
+        `;
+      }).join('');
+
+      const sampleCells = points.map(pt => {
+        const isBreach = lowerIsBetter ? pt.value > threshold : pt.value < threshold;
+        const displayVal = formatMetricNum(pt.value, decimals);
+        return `
+          <div class="p-2.5 rounded-lg border ${isBreach ? 'bg-red-50/60 border-red-200' : 'bg-emerald-50/60 border-emerald-200'} text-center">
+            <div class="text-[11px] font-medium text-slate-500">${pt.label}</div>
+            <div class="text-sm font-bold ${isBreach ? 'text-red-700' : 'text-emerald-700'} mt-0.5">${displayVal}</div>
+            <div class="text-[10px] font-semibold ${isBreach ? 'text-red-600' : 'text-emerald-600'}">${isBreach ? 'Breach' : 'Within Target'}</div>
+          </div>
+        `;
+      }).join('');
+
+      const formattedThresh = formatMetricNum(threshold, decimals);
+      const directionNote = lowerIsBetter ? 'Lower is better (breach when above limit)' : 'Higher is better (breach when below limit)';
+      const gridColsClass = points.length <= 4 ? 'lg:grid-cols-4' : 'lg:grid-cols-7';
+
+      return `
+        <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 class="text-base font-bold text-slate-900">Metric Trend vs. Assumed Threshold</h3>
+              <p class="text-xs text-slate-500">Synthetic sample trend (${unit}) • ${directionNote}.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-4 text-xs font-medium">
+              <span class="inline-flex items-center gap-1.5 text-slate-600"><span class="w-2.5 h-2.5 rounded-sm bg-emerald-500"></span> Within Target (≤ ${formattedThresh})</span>
+              <span class="inline-flex items-center gap-1.5 text-slate-600"><span class="w-2.5 h-2.5 rounded-sm bg-red-500"></span> Breach (> ${formattedThresh})</span>
+              <span class="inline-flex items-center gap-1.5 text-amber-700"><span class="w-4 border-t-2 border-dashed border-amber-600"></span> Assumed Threshold (${formattedThresh})</span>
+            </div>
+          </div>
+
+          <div class="w-full overflow-x-auto">
+            <svg viewBox="0 0 ${chartWidth} ${chartHeight}" class="w-full h-auto min-w-[480px]" role="img" aria-label="Trend chart for ${issue.metricName}">
+              ${gridLinesHtml}
+              ${barsHtml}
+              <line x1="${padLeft}" y1="${thresholdY}" x2="${chartWidth - padRight}" y2="${thresholdY}" stroke="#d97706" stroke-width="2" stroke-dasharray="6,4" />
+              <rect x="${chartWidth - padRight - 152}" y="${thresholdY - 19}" width="152" height="16" rx="3" fill="#fffbeb" stroke="#fcd34d" />
+              <text x="${chartWidth - padRight - 76}" y="${thresholdY - 8}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#b45309">Assumed Limit: ≤ ${formattedThresh}</text>
+            </svg>
+          </div>
+
+          <div>
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Sample Period Values (Synthetic • ${unit})</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 ${gridColsClass} gap-2">
+              ${sampleCells}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderDetails() {
+      const issue = getIssueById(state.selectedIssueId);
+      const linkedActions = getLinkedActions(issue.id);
+      const activeAction = getActiveActionForIssue(issue.id);
+      const latestAction = linkedActions.length > 0 ? linkedActions[0] : null;
+      const isClosedStillBreaching = isIssueClosedStillBreaching(issue);
+      const hasReviewedPrevious = Boolean(state.reviewedPreviousActionByIssue[issue.id]);
+      const isResolved = !activeAction && latestAction && latestAction.status === 'Closed' && issue.withinTarget;
+      const isWithinTargetNoAction = !activeAction && !latestAction && issue.withinTarget;
+      const showDemoToggle = Boolean(!activeAction && latestAction && latestAction.status === 'Closed');
+
+      // Conditional Primary CTA Logic
+      const renderPrimaryActionControl = () => {
+        if (isResolved) {
+          return `
+            <span class="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold">
+              <span>✓</span> Issue Resolved
+            </span>
+          `;
+        }
+        if (isWithinTargetNoAction) {
+          return `
+            <span class="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-sm font-semibold">
+              <span>✓</span> Within Target — No Action Needed
+            </span>
+          `;
+        }
+        if (activeAction) {
+          return `
+            <button
+              onclick="viewActionInTracker('${activeAction.id}')"
+              class="shrink-0 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition inline-flex items-center justify-center gap-2"
+            >
+              View / Update Action <span>→</span>
+            </button>
+          `;
+        }
+        if (isClosedStillBreaching) {
+          return `
+            <button
+              onclick="reviewPreviousAction('${issue.id}')"
+              class="shrink-0 px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg shadow-sm transition inline-flex items-center justify-center gap-2"
+            >
+              View Previous Action <span>↓</span>
+            </button>
+          `;
+        }
+        return `
+          <button
+            onclick="navigateTo('create', '${issue.id}')"
+            class="shrink-0 px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition inline-flex items-center justify-center gap-2"
+          >
+            Create Follow-up Action <span>→</span>
+          </button>
+        `;
+      };
+
+      // Linked Action Details Panel (Enforces Previous Action Review Before New Follow-up)
+      let linkedActionsHtml = '';
+      if (linkedActions.length > 0) {
+        const cards = linkedActions.map(act => {
+          const overdue = isActionOverdue(act);
+          const outcomeText = act.outcome || (act.status === 'Closed'
+            ? 'Action marked as Closed; metric remains under monitoring for target recovery.'
+            : '');
+          return `
+            <div class="p-4 rounded-lg border ${overdue ? 'border-red-200 bg-red-50/30' : 'border-slate-200 bg-slate-50/70'} flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+              <div class="space-y-2 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-xs font-mono font-bold text-slate-600">${act.id}</span>
+                  ${getStatusBadge(act.status)}
+                  ${getSeverityBadge(act.priority)}
+                  ${overdue ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white">Overdue</span>` : ''}
+                </div>
+                <p class="text-sm font-semibold text-slate-900">${act.description}</p>
+                ${outcomeText ? `
+                  <div class="text-xs text-slate-700 bg-white border border-slate-200 rounded-md p-2.5">
+                    <span class="font-bold text-slate-600 uppercase tracking-wide">Outcome:</span> ${outcomeText}
+                  </div>
+                ` : ''}
+                <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                  <span><strong>Owner:</strong> ${act.owner}</span>
+                  <span class="${overdue ? 'text-red-600 font-semibold' : ''}"><strong>Due Date:</strong> ${act.dueDate}${overdue ? ' (Past Due)' : ''}</span>
+                  <span><strong>Created:</strong> ${act.createdAt}</span>
+                </div>
+              </div>
+              <div class="shrink-0">
+                <button
+                  onclick="viewActionInTracker('${act.id}')"
+                  class="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold transition"
+                >
+                  Open in Tracker →
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        let closedReviewFooter = '';
+        if (isClosedStillBreaching) {
+          if (!hasReviewedPrevious) {
+            closedReviewFooter = `
+              <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <strong>Review Required:</strong> Inspect the previous closed action's description, owner, status, and outcome above before creating a new follow-up action.
+                </p>
+                <button
+                  onclick="reviewPreviousAction('${issue.id}')"
+                  class="shrink-0 px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm transition"
+                >
+                  Confirm Previous Action Reviewed
+                </button>
+              </div>
+            `;
+          } else {
+            closedReviewFooter = `
+              <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <span class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                  <span>✓</span> Previous action reviewed — issue still breaching target
+                </span>
+                <button
+                  onclick="navigateTo('create', '${issue.id}')"
+                  class="shrink-0 px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold rounded-lg shadow-sm transition inline-flex items-center gap-1.5"
+                >
+                  Create New Follow-up Action <span>→</span>
+                </button>
+              </div>
+            `;
+          }
+        }
+
+        linkedActionsHtml = `
+          <div id="linked-action-panel" class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4 transition">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h3 class="text-base font-bold text-slate-900">Linked Follow-up Action${linkedActions.length > 1 ? 's' : ''} (${linkedActions.length})</h3>
+                <p class="text-xs text-slate-500">
+                  ${isClosedStillBreaching
+                    ? 'The previous follow-up action is Closed, but this metric remains above its assumed performance target.'
+                    : 'Current follow-up action history linked to this operational issue.'}
+                </p>
+              </div>
+            </div>
+            <div class="space-y-3">
+              ${cards}
+            </div>
+            ${closedReviewFooter}
+          </div>
+        `;
+      }
+
+      const driverRows = issue.affectedDrivers.map((d, idx) => `
+        <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition">
+          <td class="py-3 px-4 text-sm font-medium text-slate-500">#${idx + 1}</td>
+          <td class="py-3 px-4 text-sm font-semibold text-slate-900">${d.name}</td>
+          <td class="py-3 px-4 text-sm text-slate-600 font-mono">${d.route}</td>
+          <td class="py-3 px-4 text-sm font-medium text-slate-800">${d.metricVal}</td>
+          <td class="py-3 px-4 text-sm">${getSeverityBadge(d.status)}</td>
+        </tr>
+      `).join('');
+
+      return `
+        <div class="space-y-6">
+          <!-- Breadcrumb / Back + Conditional Demo Simulation Toggle (Closed Actions Only) -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <button
+              onclick="navigateTo('overview')"
+              class="text-sm font-medium text-slate-600 hover:text-brand-600 inline-flex items-center gap-1.5 transition"
+            >
+              <span>←</span> Back to Performance Overview
+            </button>
+            <div class="flex flex-wrap items-center gap-2.5">
+              ${showDemoToggle ? `
+                <div class="inline-flex items-center gap-2.5 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm">
+                  <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">Demo Mode: Metric Status</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked="${issue.withinTarget ? 'true' : 'false'}"
+                    onclick="toggleIssueTargetStatus('${issue.id}')"
+                    class="inline-flex items-center gap-2 text-xs font-semibold transition focus:outline-none"
+                    title="Simulate metric returning within target to compare Closed + Breaching vs. Issue Resolved"
+                  >
+                    <span class="relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${issue.withinTarget ? 'bg-emerald-500' : 'bg-slate-300'}">
+                      <span class="inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${issue.withinTarget ? 'translate-x-4' : 'translate-x-1'}"></span>
+                    </span>
+                    <span class="${issue.withinTarget ? 'text-emerald-700' : 'text-red-600'}">
+                      ${issue.withinTarget ? 'Within Target' : 'Breaching Target'}
+                    </span>
+                  </button>
+                </div>
+              ` : ''}
+              <span class="text-xs font-mono text-slate-500 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200">Issue ID: ${issue.id}</span>
+            </div>
+          </div>
+
+          <!-- Issue Header Card -->
+          <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+            <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+              <div class="space-y-2">
+                <div class="flex flex-wrap items-center gap-2">
+                  ${getSeverityBadge(issue.severity)}
+                  <span class="text-xs font-semibold px-2.5 py-0.5 rounded bg-slate-100 text-slate-700">${issue.pillar} Category</span>
+                  ${getIssueResolutionBadge(issue)}
+                  ${getActionCompletionBadge(issue.id)}
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">${issue.title}</h2>
+              </div>
+              ${renderPrimaryActionControl()}
+            </div>
+
+            <!-- Metric vs Threshold Summary Strip -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-5 border-t border-slate-100">
+              <div class="${issue.withinTarget ? 'bg-emerald-50/50 border-emerald-200/70' : 'bg-red-50/50 border-red-200/70'} rounded-lg p-3.5 border">
+                <p class="text-xs font-semibold text-slate-500 uppercase">Current Metric Value (Synthetic)</p>
+                <p class="text-lg font-bold ${issue.withinTarget ? 'text-emerald-700' : 'text-red-600'} mt-1">${issue.currentValue}</p>
+              </div>
+              <div class="bg-slate-50 rounded-lg p-3.5 border border-slate-200/70">
+                <p class="text-xs font-semibold text-slate-500 uppercase">Assumed Performance Threshold</p>
+                <p class="text-lg font-bold text-slate-800 mt-1">${issue.assumedThreshold}</p>
+              </div>
+              <div class="${issue.withinTarget ? 'bg-emerald-50/50 border-emerald-200/70' : 'bg-amber-50/50 border-amber-200/70'} rounded-lg p-3.5 border">
+                <p class="text-xs font-semibold text-slate-500 uppercase">Breach Margin / Variance</p>
+                <p class="text-lg font-bold ${issue.withinTarget ? 'text-emerald-700' : 'text-amber-700'} mt-1">
+                  ${issue.withinTarget ? 'Within Target (Demo Simulation)' : issue.breachMargin}
+                </p>
+              </div>
+            </div>
+
+            <!-- Why Flagged -->
+            <div class="mt-5 pt-4 border-t border-slate-100">
+              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Why This Issue Was Flagged</h3>
+              <p class="text-sm text-slate-700 leading-relaxed">${issue.summary}</p>
+            </div>
+          </div>
+
+          <!-- Visual Trend Chart -->
+          ${renderTrendChart(issue)}
+
+          <!-- Linked Action Details (when one or more actions exist) -->
+          ${linkedActionsHtml}
+
+          <!-- Prominent Proposed Next Step Callout -->
+          <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+            <div class="flex items-start gap-3.5">
+              <div class="w-10 h-10 rounded-lg bg-brand-600 text-white flex items-center justify-center shrink-0 text-lg shadow-sm">
+                💡
+              </div>
+              <div>
+                <h3 class="text-xs font-bold text-brand-700 uppercase tracking-wider">Proposed Next Step</h3>
+                <p class="text-sm text-slate-800 font-medium mt-1 leading-relaxed">${issue.proposedNextStep}</p>
+              </div>
+            </div>
+            ${renderPrimaryActionControl()}
+          </div>
+
+          <!-- Affected Drivers Table (Sorted Worst-First) -->
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 class="text-base font-bold text-slate-900">Affected Drivers &amp; Supporting Details (Sorted Worst-First)</h3>
+                <p class="text-xs text-slate-500">Synthetic driver-level breakdown highlighting highest-impact contributors for targeted coaching.</p>
+              </div>
+              <span class="text-xs font-semibold text-slate-700 bg-slate-100 px-3 py-1 rounded-full">
+                ${issue.affectedDrivers.length} Drivers Flagged
+              </span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <th class="py-3 px-4">Rank</th>
+                    <th class="py-3 px-4">Driver Name</th>
+                    <th class="py-3 px-4">Route ID</th>
+                    <th class="py-3 px-4">Metric / Event Count</th>
+                    <th class="py-3 px-4">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${driverRows}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    /*************************************************************************
+     * 6. SCREEN 3: CREATE FOLLOW-UP ACTION (SMART DEFAULTS & WORKFLOW GUARDS)
+     *************************************************************************/
+    function syncDraftField(field, value) {
+      state.actionDraft[field] = value;
+      if (field === 'dueDate') {
+        state.actionDraft.dueDateSuggested = false;
+        const hint = document.getElementById('dueDate-hint');
+        if (hint) hint.classList.add('hidden');
+      }
+      if (field === 'description') {
+        const counter = document.getElementById('desc-char-count');
+        if (counter) {
+          const len = value.trim().length;
+          counter.textContent = `${len} / 10 min chars`;
+          counter.className = `text-xs font-medium ${len >= 10 ? 'text-emerald-600' : 'text-slate-400'}`;
+        }
+      }
+    }
+
+    function handlePriorityChange(priority) {
+      state.actionDraft.priority = priority;
+      const daysMap = { High: 2, Medium: 5, Low: 10 };
+      if (daysMap[priority]) {
+        const suggested = addDaysISO(daysMap[priority]);
+        state.actionDraft.dueDate = suggested;
+        state.actionDraft.dueDateSuggested = true;
+        const dueInput = document.getElementById('field-dueDate');
+        if (dueInput) dueInput.value = suggested;
+        const hint = document.getElementById('dueDate-hint');
+        if (hint) {
+          hint.textContent = `Suggested +${daysMap[priority]} days for ${priority} priority (editable)`;
+          hint.classList.remove('hidden');
+        }
+        setFieldError('field-dueDate', 'err-dueDate', false);
+      }
+      setFieldError('field-priority', 'err-priority', false);
+    }
+
+    function clearDraftAndCancel(issueId) {
+      state.actionDraft = { owner: '', priority: '', dueDate: '', dueDateSuggested: false, description: '' };
+      navigateTo('details', issueId);
+    }
+
+    function renderCreateAction() {
+      const allIssues = getAllIssues();
+      const selectedIssue = getIssueById(state.selectedIssueId);
+      const existingActiveAction = getActiveActionForIssue(selectedIssue.id);
+      const isTargetMet = selectedIssue.withinTarget && !existingActiveAction;
+      const needsPreviousReview = isIssueClosedStillBreaching(selectedIssue) && !state.reviewedPreviousActionByIssue[selectedIssue.id];
+      const isSubmitDisabled = Boolean(existingActiveAction || isTargetMet || needsPreviousReview);
+      const draft = state.actionDraft;
+      const todayISO = getTodayISO();
+
+      const issueOptions = allIssues.map(i => `
+        <option value="${i.id}" ${i.id === selectedIssue.id ? 'selected' : ''}>
+          [${i.id}] ${i.title} (${i.severity})
+        </option>
+      `).join('');
+
+      const ownerOptions = MANAGERS.map(m => `
+        <option value="${m}" ${draft.owner === m ? 'selected' : ''}>${m}</option>
+      `).join('');
+
+      const descLen = (draft.description || '').trim().length;
+
+      return `
+        <div class="max-w-2xl mx-auto space-y-6">
+          <div class="flex items-center justify-between">
+            <button
+              onclick="navigateTo('details', '${selectedIssue.id}')"
+              class="text-sm font-medium text-slate-600 hover:text-brand-600 inline-flex items-center gap-1.5 transition"
+            >
+              <span>←</span> Back to Issue Details
+            </button>
+          </div>
+
+          <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-6 sm:p-8">
+            <div class="mb-6">
+              <h2 class="text-xl font-bold text-slate-900">Create Follow-up Action</h2>
+              <p class="text-sm text-slate-500 mt-1">Assign an accountable owner, priority, and due date. Draft details are preserved if you navigate away.</p>
+            </div>
+
+            ${existingActiveAction ? `
+              <!-- Active Action Duplicate Guard -->
+              <div class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 space-y-3">
+                <div class="flex items-start gap-2.5">
+                  <span class="text-base leading-none mt-0.5">⚠️</span>
+                  <div>
+                    <p class="font-bold">An active follow-up action already exists for ${selectedIssue.id}</p>
+                    <p class="text-xs text-amber-800 mt-1">
+                      <strong>${existingActiveAction.id}</strong> (${existingActiveAction.status}) is currently assigned to <strong>${existingActiveAction.owner}</strong> with due date <strong>${existingActiveAction.dueDate}</strong>. To prevent duplicate work, update the existing action or choose a different issue.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onclick="viewActionInTracker('${existingActiveAction.id}')"
+                    class="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shadow-sm transition"
+                  >
+                    View / Update Existing Action →
+                  </button>
+                </div>
+              </div>
+            ` : ''}
+
+            ${needsPreviousReview ? `
+              <!-- Previous Closed Action Review Gate -->
+              <div class="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-900 space-y-3">
+                <div class="flex items-start gap-2.5">
+                  <span class="text-base leading-none mt-0.5">📋</span>
+                  <div>
+                    <p class="font-bold">Review previous closed action before creating a new follow-up</p>
+                    <p class="text-xs text-amber-800 mt-1">
+                      ${selectedIssue.id} already has a Closed action, yet the metric is still breaching its target. Please review the previous action's description, owner, status, and outcome first.
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    onclick="reviewPreviousAction('${selectedIssue.id}')"
+                    class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold shadow-sm transition"
+                  >
+                    View Previous Action →
+                  </button>
+                </div>
+              </div>
+            ` : ''}
+
+            ${isTargetMet ? `
+              <!-- Within Target Guard -->
+              <div class="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-sm text-emerald-900 flex items-start gap-2.5">
+                <span class="text-base leading-none mt-0.5">✓</span>
+                <div>
+                  <p class="font-bold">${selectedIssue.id} is currently Within Target</p>
+                  <p class="text-xs text-emerald-800 mt-1">
+                    No follow-up action is needed while this metric is within its assumed performance threshold. Select another breaching issue to assign an action.
+                  </p>
+                </div>
+              </div>
+            ` : ''}
+
+            <!-- Validation Summary Alert -->
+            <div id="form-error-summary" class="hidden mb-6 p-4 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+              <p class="font-semibold flex items-center gap-2">
+                <span>⚠️</span> Please fix the highlighted fields before assigning the action.
+              </p>
+            </div>
+
+            <form id="create-action-form" onsubmit="handleCreateActionSubmit(event)" novalidate class="space-y-5">
+              <!-- Linked Issue -->
+              <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <label for="field-issue" class="block text-xs font-bold text-slate-600 uppercase tracking-wide mb-1.5">
+                  Linked Issue (Title &amp; ID)
+                </label>
+                <select
+                  id="field-issue"
+                  onchange="state.selectedIssueId = this.value; render();"
+                  class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm font-medium text-slate-800 focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+                >
+                  ${issueOptions}
+                </select>
+              </div>
+
+              <!-- Assigned Owner -->
+              <div>
+                <label for="field-owner" class="block text-sm font-semibold text-slate-700 mb-1">
+                  Assigned Owner <span class="text-red-500">*</span>
+                </label>
+                <select
+                  id="field-owner"
+                  onchange="syncDraftField('owner', this.value); setFieldError('field-owner', 'err-owner', false);"
+                  class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+                >
+                  <option value="">-- Select an Operations Owner --</option>
+                  ${ownerOptions}
+                </select>
+                <p id="err-owner" class="hidden mt-1 text-xs font-medium text-red-600">Please select an assigned owner.</p>
+              </div>
+
+              <!-- Priority & Due Date -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="field-priority" class="block text-sm font-semibold text-slate-700 mb-1">
+                    Priority <span class="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="field-priority"
+                    onchange="handlePriorityChange(this.value)"
+                    class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+                  >
+                    <option value="">-- Select Priority --</option>
+                    <option value="High" ${draft.priority === 'High' ? 'selected' : ''}>High (Suggested: +2 days)</option>
+                    <option value="Medium" ${draft.priority === 'Medium' ? 'selected' : ''}>Medium (Suggested: +5 days)</option>
+                    <option value="Low" ${draft.priority === 'Low' ? 'selected' : ''}>Low (Suggested: +10 days)</option>
+                  </select>
+                  <p id="err-priority" class="hidden mt-1 text-xs font-medium text-red-600">Please select a priority level.</p>
+                </div>
+
+                <div>
+                  <label for="field-dueDate" class="block text-sm font-semibold text-slate-700 mb-1">
+                    Due Date <span class="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    id="field-dueDate"
+                    min="${todayISO}"
+                    value="${draft.dueDate || ''}"
+                    onchange="syncDraftField('dueDate', this.value); setFieldError('field-dueDate', 'err-dueDate', false);"
+                    class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+                  />
+                  <p id="dueDate-hint" class="${draft.dueDateSuggested ? '' : 'hidden'} mt-1 text-xs font-medium text-brand-600">
+                    Suggested based on priority (editable)
+                  </p>
+                  <p id="err-dueDate" class="hidden mt-1 text-xs font-medium text-red-600">Please choose a valid due date (today or later).</p>
+                </div>
+              </div>
+
+              <!-- Action Description -->
+              <div>
+                <div class="flex items-center justify-between mb-1">
+                  <label for="field-description" class="block text-sm font-semibold text-slate-700">
+                    Action Description <span class="text-red-500">*</span>
+                  </label>
+                  <span id="desc-char-count" class="text-xs font-medium ${descLen >= 10 ? 'text-emerald-600' : 'text-slate-400'}">
+                    ${descLen} / 10 min chars
+                  </span>
+                </div>
+                <textarea
+                  id="field-description"
+                  rows="4"
+                  oninput="syncDraftField('description', this.value); if(this.value.trim().length >= 10) setFieldError('field-description', 'err-description', false);"
+                  placeholder="Describe the concrete follow-up steps (e.g., 1-on-1 coaching with affected drivers, POD audit, SOP reminder)..."
+                  class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2.5 text-sm text-slate-800 focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+                >${draft.description || ''}</textarea>
+                <p id="err-description" class="hidden mt-1 text-xs font-medium text-red-600">Description is required (minimum 10 characters).</p>
+              </div>
+
+              <!-- Form Buttons -->
+              <div class="pt-3 flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onclick="clearDraftAndCancel('${selectedIssue.id}')"
+                  class="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-slate-300 text-slate-700 text-sm font-medium hover:bg-slate-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  ${isSubmitDisabled ? 'disabled' : ''}
+                  class="w-full sm:w-auto px-6 py-2.5 rounded-lg ${isSubmitDisabled ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-700 text-white shadow-sm'} text-sm font-semibold transition"
+                >
+                  Assign Action
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    }
+
+    function setFieldError(fieldId, errId, hasError, customMsg = null) {
+      const field = document.getElementById(fieldId);
+      const err = document.getElementById(errId);
+      if (!field || !err) return;
+      if (customMsg) err.textContent = customMsg;
+      if (hasError) {
+        field.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+        field.classList.remove('border-slate-300');
+        err.classList.remove('hidden');
+      } else {
+        field.classList.remove('border-red-500', 'ring-1', 'ring-red-500');
+        field.classList.add('border-slate-300');
+        err.classList.add('hidden');
+      }
+    }
+
+    function handleCreateActionSubmit(event) {
+      event.preventDefault();
+
+      const issueId = document.getElementById('field-issue').value;
+      const existingActive = getActiveActionForIssue(issueId);
+      if (existingActive) {
+        showToast(`Active action ${existingActive.id} already exists for ${issueId}.`, 'error');
+        return;
+      }
+
+      const targetIssue = getIssueById(issueId);
+      if (targetIssue && targetIssue.withinTarget) {
+        showToast(`${issueId} is already Within Target — no follow-up action needed.`, 'info');
+        return;
+      }
+
+      if (isIssueClosedStillBreaching(targetIssue) && !state.reviewedPreviousActionByIssue[issueId]) {
+        showToast(`Please review the previous closed action for ${issueId} first.`, 'error');
+        return;
+      }
+
+      const owner = document.getElementById('field-owner').value.trim();
+      const dueDate = document.getElementById('field-dueDate').value.trim();
+      const priority = document.getElementById('field-priority').value.trim();
+      const description = document.getElementById('field-description').value.trim();
+      const todayISO = getTodayISO();
+
+      const ownerErr = !owner;
+      const priorityErr = !priority;
+      const dueDateMissing = !dueDate;
+      const dueDatePast = Boolean(dueDate && dueDate < todayISO);
+      const dueDateErr = dueDateMissing || dueDatePast;
+      const descErr = description.length < 10;
+
+      setFieldError('field-owner', 'err-owner', ownerErr);
+      setFieldError('field-priority', 'err-priority', priorityErr);
+      setFieldError(
+        'field-dueDate',
+        'err-dueDate',
+        dueDateErr,
+        dueDatePast ? 'Due date cannot be in the past. Please choose today or a future date.' : 'Please choose a due date.'
+      );
+      setFieldError('field-description', 'err-description', descErr);
+
+      const summary = document.getElementById('form-error-summary');
+      if (ownerErr || dueDateErr || priorityErr || descErr) {
+        summary.classList.remove('hidden');
+        showToast('Validation failed: Please complete all required fields.', 'error');
+        return;
+      }
+
+      summary.classList.add('hidden');
+      const linkedIssue = getIssueById(issueId);
+
+      const newAction = {
+        id: `ACT-${501 + state.actions.length}`,
+        issueId: linkedIssue.id,
+        issueTitle: linkedIssue.title,
+        owner,
+        dueDate,
+        priority,
+        status: 'Open',
+        description,
+        outcome: '',
+        createdAt: 'Just now'
+      };
+
+      state.actions.unshift(newAction);
+      state.reviewedPreviousActionByIssue[issueId] = false;
+      state.actionFilterStatus = 'All';
+      state.actionDraft = { owner: '', priority: '', dueDate: '', dueDateSuggested: false, description: '' };
+      showToast(`Action ${newAction.id} assigned to ${owner} and added to tracker.`, 'success');
+      navigateTo('tracker');
+    }
+
+    /*************************************************************************
+     * 7. SCREEN 4: ACTION TRACKER (OVERDUE HIGHLIGHTS & QUICK TRANSITIONS)
+     *************************************************************************/
+    function setActionFilter(status) {
+      state.actionFilterStatus = status;
+      render();
+    }
+
+    function updateActionStatus(actionId, newStatus) {
+      const action = state.actions.find(a => a.id === actionId);
+      if (!action) return;
+      action.status = newStatus;
+      if (newStatus === 'Closed') {
+        if (!action.outcome) {
+          action.outcome = `Marked Closed by ${action.owner}; awaiting next reporting cycle to confirm sustained metric recovery.`;
+        }
+        state.reviewedPreviousActionByIssue[action.issueId] = false;
+      }
+      updateNavState();
+      showToast(`Action ${actionId} moved to "${newStatus}".`, 'info');
+      render();
+    }
+
+    function getQuickStatusButtons(act) {
+      if (act.status === 'Open') {
+        return `
+          <button onclick="updateActionStatus('${act.id}', 'In Progress')" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition shadow-sm">
+            Start Progress
+          </button>
+          <button onclick="updateActionStatus('${act.id}', 'Closed')" class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold transition">
+            Mark Closed
+          </button>
+        `;
+      }
+      if (act.status === 'In Progress') {
+        return `
+          <button onclick="updateActionStatus('${act.id}', 'Closed')" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition shadow-sm">
+            Mark Closed
+          </button>
+          <button onclick="updateActionStatus('${act.id}', 'Blocked')" class="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-semibold transition">
+            Flag Blocked
+          </button>
+        `;
+      }
+      if (act.status === 'Blocked') {
+        return `
+          <button onclick="updateActionStatus('${act.id}', 'In Progress')" class="px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold transition shadow-sm">
+            Resume Progress
+          </button>
+          <button onclick="updateActionStatus('${act.id}', 'Closed')" class="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold transition">
+            Mark Closed
+          </button>
+        `;
+      }
+      return `
+        <button onclick="updateActionStatus('${act.id}', 'Open')" class="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition">
+          Reopen
+        </button>
+      `;
+    }
+
+    function renderTracker() {
+      const statuses = ['All', 'Open', 'In Progress', 'Blocked', 'Closed'];
+
+      const countFor = (st) => {
+        if (st === 'All') return state.actions.length;
+        return state.actions.filter(a => a.status === st).length;
+      };
+
+      const overdueCount = state.actions.filter(isActionOverdue).length;
+
+      const filterPills = statuses.map(st => {
+        const active = state.actionFilterStatus === st;
+        const count = countFor(st);
+        const cls = active
+          ? 'bg-brand-600 text-white border-brand-600 shadow-sm'
+          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50';
+        return `
+          <button
+            onclick="setActionFilter('${st}')"
+            class="px-3.5 py-2 rounded-lg text-sm font-medium border transition inline-flex items-center gap-2 ${cls}"
+          >
+            <span>${st}</span>
+            <span class="text-xs px-1.5 py-0.5 rounded-full font-semibold ${active ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}">
+              ${count}
+            </span>
+          </button>
+        `;
+      }).join('');
+
+      const filteredActions = state.actionFilterStatus === 'All'
+        ? state.actions
+        : state.actions.filter(a => a.status === state.actionFilterStatus);
+
+      let listContent = '';
+      if (filteredActions.length === 0) {
+        listContent = `
+          <div class="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-sm">
+            <div class="w-14 h-14 mx-auto mb-4 rounded-xl bg-slate-100 flex items-center justify-center text-2xl">
+              📋
+            </div>
+            <h3 class="text-lg font-bold text-slate-900">No actions in "${state.actionFilterStatus}" status</h3>
+            <p class="text-sm text-slate-500 max-w-md mx-auto mt-1">
+              There are currently 0 follow-up actions matching this filter. Reset the filter to view all tracked actions or create a new one.
+            </p>
+            <div class="mt-5 flex items-center justify-center gap-3">
+              <button
+                onclick="setActionFilter('All')"
+                class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition"
+              >
+                Show All Actions
+              </button>
+              <button
+                onclick="navigateTo('create')"
+                class="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 text-sm font-medium rounded-lg transition"
+              >
+                + New Action
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        listContent = `
+          <div class="space-y-3">
+            ${filteredActions.map(act => {
+              const overdue = isActionOverdue(act);
+              const isHighlighted = state.highlightedActionId === act.id;
+              const cardBorder = isHighlighted
+                ? 'border-brand-600 ring-2 ring-brand-600/30 bg-blue-50/20'
+                : overdue
+                  ? 'border-red-300 bg-red-50/20'
+                  : 'border-slate-200 bg-white';
+              return `
+                <div id="action-card-${act.id}" class="rounded-xl border ${cardBorder} p-5 shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-4 transition">
+                  <div class="space-y-2 flex-1">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-xs font-mono font-semibold text-slate-500">${act.id}</span>
+                      ${getStatusBadge(act.status)}
+                      ${getSeverityBadge(act.priority)}
+                      ${overdue ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-600 text-white">Overdue</span>` : ''}
+                      <button
+                        onclick="navigateTo('details', '${act.issueId}')"
+                        class="text-xs font-semibold text-brand-600 hover:underline"
+                      >
+                        Linked Issue: ${act.issueTitle} (${act.issueId})
+                      </button>
+                    </div>
+                    <p class="text-sm font-semibold text-slate-900 leading-snug">${act.description}</p>
+                    ${act.status === 'Closed' && act.outcome ? `
+                      <p class="text-xs text-slate-600 bg-slate-50 border border-slate-200/80 rounded-md px-2.5 py-1.5">
+                        <strong>Outcome:</strong> ${act.outcome}
+                      </p>
+                    ` : ''}
+                    <div class="flex flex-wrap items-center gap-4 text-xs text-slate-500 pt-0.5">
+                      <span><strong>Owner:</strong> ${act.owner}</span>
+                      <span class="${overdue ? 'text-red-600 font-semibold' : ''}"><strong>Due Date:</strong> ${act.dueDate}${overdue ? ' (Past Due)' : ''}</span>
+                      <span><strong>Created:</strong> ${act.createdAt}</span>
+                    </div>
+                  </div>
+
+                  <!-- Quick Workflow Buttons + Status Selector -->
+                  <div class="flex flex-wrap items-center gap-2 shrink-0 pt-3 xl:pt-0 border-t xl:border-t-0 border-slate-100">
+                    ${getQuickStatusButtons(act)}
+                    <select
+                      aria-label="Change status for ${act.id}"
+                      onchange="updateActionStatus('${act.id}', this.value)"
+                      class="bg-slate-50 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-brand-600 focus:border-brand-600"
+                    >
+                      <option value="Open" ${act.status === 'Open' ? 'selected' : ''}>Open</option>
+                      <option value="In Progress" ${act.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                      <option value="Blocked" ${act.status === 'Blocked' ? 'selected' : ''}>Blocked</option>
+                      <option value="Closed" ${act.status === 'Closed' ? 'selected' : ''}>Closed</option>
+                    </select>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      }
+
+      return `
+        <div class="space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div>
+              <div class="flex items-center gap-2.5">
+                <h2 class="text-xl font-bold text-slate-900">Action Tracker</h2>
+                ${overdueCount > 0 ? `<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-700">${overdueCount} Overdue</span>` : ''}
+              </div>
+              <p class="text-sm text-slate-500 mt-0.5">Track assigned operational follow-ups from creation to closure.</p>
+            </div>
+            <button
+              onclick="navigateTo('create')"
+              class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold rounded-lg shadow-sm transition"
+            >
+              + New Follow-up Action
+            </button>
+          </div>
+
+          <!-- Status Filter Pills -->
+          <div class="flex flex-wrap items-center gap-2">
+            ${filterPills}
+          </div>
+
+          ${listContent}
+        </div>
+      `;
+    }
+
+    /*************************************************************************
+     * 8. MAIN RENDER LOOP
+     *************************************************************************/
+    function render() {
+      const root = document.getElementById('app-root');
+      if (!root) return;
+
+      let html = '';
+      if (state.currentView === 'overview') html = renderOverview();
+      else if (state.currentView === 'details') html = renderDetails();
+      else if (state.currentView === 'create') html = renderCreateAction();
+      else if (state.currentView === 'tracker') html = renderTracker();
+
+      root.innerHTML = html;
+      root.classList.remove('fade-in');
+      void root.offsetWidth;
+      root.classList.add('fade-in');
+    }
+
+    window.onload = function () {
+      updateNavState();
+      render();
+    };
+  </script>
+</body>
+</html>
